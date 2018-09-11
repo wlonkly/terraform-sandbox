@@ -4,7 +4,7 @@ resource "aws_instance" "sc-example" {
   instance_type   = "t2.micro"
   key_name        = "rich id_rsa"
   subnet_id       = "subnet-9ac70ef3"
-  security_groups = ["sg-609c0809"]
+  security_groups = ["acg-WebDMZ"]
 
   tags = {
     terraform = "true"
