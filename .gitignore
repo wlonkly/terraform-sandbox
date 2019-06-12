@@ -1,3 +1,5 @@
 */terraform.tfvars
 */.terraform
 */terraform.tfstate*
+provisioning-secrets/*.tfstate
+provisioning-secrets/*.tfvars
