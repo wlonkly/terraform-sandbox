@@ -3,7 +3,7 @@ variable "region" {
 }
 
 variable "subnets" {
-  type = "map"
+  type = map(string)
 
   default = {
     "ca-central-1a" = "10.0.1.0/24"
@@ -18,3 +18,4 @@ variable "vpc_cidr" {
 variable "dns_zone" {
   default = "rlafferty.pd-development.com"
 }
+
