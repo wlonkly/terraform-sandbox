@@ -45,12 +45,15 @@ resource "aws_security_group" "allow_ssh_from_home" {
 }
 
 resource "aws_security_group_rule" "allow_ssh_from_home" {
-  type        = "ingress"
-  from_port   = 22
-  to_port     = 22
-  protocol    = "tcp"
-  #cidr_blocks = ["0.0.0.0/0"]
-  cidr_blocks       = ["24.212.233.114/32"]
+  type      = "ingress"
+  from_port = 22
+  to_port   = 22
+  protocol  = "tcp"
+  cidr_blocks = [
+    aws_vpc.vpc.cidr_block, # health checks from NLB
+    "24.212.233.114/32",    # rich at home
+  ]
+
   security_group_id = aws_security_group.allow_ssh_from_home.id
 }
 
