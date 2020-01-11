@@ -162,7 +162,7 @@ resource "aws_globalaccelerator_endpoint_group" "ssh" {
   }
 
   # defaults keep getting set?
-  health_check_path = "/"
+  health_check_path = ""
   health_check_port = "22"
 }
 
