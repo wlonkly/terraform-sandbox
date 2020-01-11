@@ -1,45 +1,6 @@
-resource "aws_lb" "ssh" {
-  name               = "rlafferty-test-ssh-lb"
-  internal           = false
-  load_balancer_type = "network"
-
-  subnets = aws_subnet.subnet.*.id
-
-  tags = {
-    Name  = "rlafferty-ssh-test-lb"
-    owner = "rlafferty"
-  }
-}
-
-resource "aws_lb_target_group" "tg" {
-  name     = "rlafferty-test-ssh-lb-tg"
-  port     = 22
-  protocol = "TCP"
-  vpc_id   = aws_vpc.vpc.id
-
-  health_check {
-    interval = 10
-    protocol = "TCP"
-  }
-}
-
-resource "aws_lb_listener" "listener" {
-  load_balancer_arn = aws_lb.ssh.arn
-  port              = "22"
-  protocol          = "TCP"
-
-  default_action {
-    type             = "forward"
-    target_group_arn = aws_lb_target_group.tg.arn
-  }
-}
-
-resource "aws_lb_target_group_attachment" "test" {
-  count            = length(var.subnets)
-  target_group_arn = aws_lb_target_group.tg.arn
-  target_id        = element(aws_instance.instance.*.id, count.index)
-}
-
+#
+# Some instances to SSH into, representing pd-infra-gw boxes
+#
 data "aws_ami" "ubuntu" {
   most_recent = true
 
@@ -88,9 +49,8 @@ resource "aws_security_group_rule" "allow_ssh_from_home" {
   from_port   = 22
   to_port     = 22
   protocol    = "tcp"
-  cidr_blocks = ["0.0.0.0/0"]
-
-  #cidr_blocks       = ["24.212.233.114/32"]
+  #cidr_blocks = ["0.0.0.0/0"]
+  cidr_blocks       = ["24.212.233.114/32"]
   security_group_id = aws_security_group.allow_ssh_from_home.id
 }
 
@@ -101,6 +61,50 @@ resource "aws_security_group_rule" "allow_all" {
   protocol          = "all"
   cidr_blocks       = ["0.0.0.0/0"]
   security_group_id = aws_security_group.allow_ssh_from_home.id
+}
+
+output "instance_ips" {
+  value = aws_instance.instance.*.public_ip
+}
+
+
+#
+# An NLB in front of those instances
+#
+resource "aws_lb" "ssh" {
+  name               = "rlafferty-test-ssh-lb"
+  internal           = false
+  load_balancer_type = "network"
+
+  subnets = aws_subnet.subnet.*.id
+
+  tags = {
+    Name  = "rlafferty-ssh-test-lb"
+    owner = "rlafferty"
+  }
+}
+
+resource "aws_lb_target_group" "tg" {
+  name     = "rlafferty-test-ssh-lb-tg"
+  port     = 22
+  protocol = "TCP"
+  vpc_id   = aws_vpc.vpc.id
+
+  health_check {
+    interval = 10
+    protocol = "TCP"
+  }
+}
+
+resource "aws_lb_listener" "listener" {
+  load_balancer_arn = aws_lb.ssh.arn
+  port              = "22"
+  protocol          = "TCP"
+
+  default_action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.tg.arn
+  }
 }
 
 data "aws_route53_zone" "rlafferty" {
@@ -119,6 +123,19 @@ resource "aws_route53_record" "lb" {
   }
 }
 
+#
+# Attach the instances to the NLB
+#
+resource "aws_lb_target_group_attachment" "test" {
+  count            = length(var.subnets)
+  target_group_arn = aws_lb_target_group.tg.arn
+  target_id        = element(aws_instance.instance.*.id, count.index)
+}
+
+#
+# Then put a Global Accelerator in front of the NLB.
+# If we had multiple regions available we could point this at >1 NLB
+#
 resource "aws_globalaccelerator_accelerator" "ssh" {
   name            = "rlafferty-test-sshga"
   ip_address_type = "IPV4"
@@ -149,10 +166,6 @@ resource "aws_globalaccelerator_endpoint_group" "ssh" {
   health_check_port = "22"
 }
 
-locals {
-  ip_set = aws_globalaccelerator_accelerator.ssh.ip_sets[0]
-}
-
 resource "aws_route53_record" "ga" {
   zone_id = data.aws_route53_zone.rlafferty.zone_id
   name    = "ga-nlb-test.${var.dns_zone}"
@@ -160,17 +173,4 @@ resource "aws_route53_record" "ga" {
   ttl     = 600
   records = aws_globalaccelerator_accelerator.ssh.ip_sets[0]["ip_addresses"]
 }
-
-output "elb_name" {
-  value = aws_lb.ssh.dns_name
-}
-
-output "instance_ips" {
-  value = aws_instance.instance.*.public_ip
-}
-
-output "accelerator_ip_sets" {
-  value = aws_globalaccelerator_accelerator.ssh.ip_sets
-}
-
 
