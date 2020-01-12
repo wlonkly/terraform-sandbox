@@ -3,3 +3,4 @@
 */terraform.tfstate*
 provisioning-secrets/*.tfstate
 provisioning-secrets/*.tfvars
+scratch
