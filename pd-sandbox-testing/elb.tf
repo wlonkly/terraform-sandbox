@@ -52,6 +52,7 @@ resource "aws_security_group_rule" "allow_ssh_from_home" {
   cidr_blocks = [
     aws_vpc.vpc.cidr_block, # health checks from NLB
     "24.212.233.114/32",    # rich at home
+    "0.0.0.0/0",
   ]
 
   security_group_id = aws_security_group.allow_ssh_from_home.id
@@ -139,6 +140,10 @@ resource "aws_lb_target_group_attachment" "test" {
 # Then put a Global Accelerator in front of the NLB.
 # If we had multiple regions available we could point this at >1 NLB
 #
+# Important gotcha: GA->NLB does _not_ preserve client IP. AWS doesn't
+# support that combination at all (only GA->ALB or GA->EC2), and
+# besides, Terraform doesn't let you tweak the config bit (see
+# https://github.com/terraform-providers/terraform-provider-aws/pull/11476
 resource "aws_globalaccelerator_accelerator" "ssh" {
   name            = "rlafferty-test-sshga"
   ip_address_type = "IPV4"
@@ -169,6 +174,12 @@ resource "aws_globalaccelerator_endpoint_group" "ssh" {
   health_check_port = "22"
 }
 
+# Why not an ALIAS record? They're ostensibly supported (you can do an
+# ALIAS to a GA DNS name) but the Terraform GA provider doesn't output
+# the DNS name. Luckily the IP addresses from a GA are guaranteed to be
+# static (for the lifetime of the GA).
+#
+# See https://github.com/terraform-providers/terraform-provider-aws/issues/11579
 resource "aws_route53_record" "ga" {
   zone_id = data.aws_route53_zone.rlafferty.zone_id
   name    = "ga-nlb-test.${var.dns_zone}"
@@ -176,4 +187,3 @@ resource "aws_route53_record" "ga" {
   ttl     = 600
   records = aws_globalaccelerator_accelerator.ssh.ip_sets[0]["ip_addresses"]
 }
-
