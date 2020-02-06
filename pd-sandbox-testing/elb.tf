@@ -71,20 +71,34 @@ output "instance_ips" {
   value = aws_instance.instance.*.public_ip
 }
 
-
 #
 # An NLB in front of those instances
 #
+resource "aws_eip" "lb-eip" {
+  count    = length(var.subnets)
+}
+
 resource "aws_lb" "ssh" {
   name               = "rlafferty-test-ssh-lb"
   internal           = false
   load_balancer_type = "network"
 
-  subnets = aws_subnet.subnet.*.id
+  dynamic "subnet_mapping" {
+    for_each = range(length(var.subnets))
+
+    content {
+      subnet_id     = lookup(aws_subnet.subnet[subnet_mapping.key], "id")
+      allocation_id = lookup(aws_eip.lb-eip[subnet_mapping.key], "id")
+    }
+  }
 
   tags = {
     Name  = "rlafferty-ssh-test-lb"
     owner = "rlafferty"
+  }
+
+  lifecycle {
+    create_before_destroy = true
   }
 }
 
@@ -108,6 +122,10 @@ resource "aws_lb_listener" "listener" {
   default_action {
     type             = "forward"
     target_group_arn = aws_lb_target_group.tg.arn
+  }
+
+  lifecycle {
+    create_before_destroy = true
   }
 }
 
