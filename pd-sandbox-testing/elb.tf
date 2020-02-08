@@ -6,7 +6,7 @@ data "aws_ami" "ubuntu" {
 
   filter {
     name   = "name"
-    values = ["ubuntu/images/hvm-ssd/ubuntu-trusty-14.04-amd64-server-*"]
+    values = ["ubuntu/images/hvm-ssd/ubuntu-bionic-18.04-amd64-server-*"]
   }
 
   filter {
@@ -19,7 +19,7 @@ data "aws_ami" "ubuntu" {
 
 resource "aws_key_pair" "keypair" {
   key_name   = "rlafferty-lb-test"
-  public_key = file("/Users/rlafferty/.ssh/id_rsa.pagerduty.pub")
+  public_key = file("id_rsa.pagerduty.pub")
 }
 
 resource "aws_instance" "instance" {
@@ -31,9 +31,10 @@ resource "aws_instance" "instance" {
 
   associate_public_ip_address = true
   vpc_security_group_ids      = [aws_security_group.allow_ssh_from_home.id]
+  iam_instance_profile        = aws_iam_instance_profile.profile.name
 
   tags = {
-    name  = "rlafferty-alb-test"
+    Name  = "rlafferty-alb-test-${count.index}"
     owner = "rlafferty"
   }
 }
